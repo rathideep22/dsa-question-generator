@@ -13,12 +13,13 @@ interface Question {
   constraints: string
   sampleInput: string
   sampleOutput: string
-  functionTemplate?: string
+  language?: string
+  implementation?: string
 }
 
 interface FormData {
   positionName: string
-  language: string
+  languages: string[]
   problem: string
   hint: string
   type: 'from-scratch' | 'complete-code'
@@ -29,10 +30,10 @@ interface FormData {
 export default function Home() {
   const [formData, setFormData] = useState<FormData>({
     positionName: 'Software Engineer',
-    language: 'javascript',
+    languages: ['javascript'],
     problem: '',
     hint: '',
-    type: 'from-scratch',
+    type: 'complete-code',
     difficultyLevel: 'medium',
     topic: 'Arrays'
   })
@@ -42,6 +43,17 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSendingToSheet, setIsSendingToSheet] = useState(false)
 
+  const availableLanguages = [
+    { id: 'javascript', name: 'JavaScript' },
+    { id: 'python', name: 'Python' },
+    { id: 'java', name: 'Java' },
+    { id: 'cpp', name: 'C++' },
+    { id: 'csharp', name: 'C#' },
+    { id: 'go', name: 'Go' },
+    { id: 'rust', name: 'Rust' },
+    { id: 'typescript', name: 'TypeScript' }
+  ]
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -50,7 +62,20 @@ export default function Home() {
     }))
   }
 
+  const handleLanguageChange = (languageId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      languages: prev.languages.includes(languageId)
+        ? prev.languages.filter(lang => lang !== languageId)
+        : [...prev.languages, languageId]
+    }))
+  }
+
   const generateQuestions = async () => {
+    if (formData.languages.length === 0) {
+      toast.error('Please select at least one language')
+      return
+    }
 
     setIsGenerating(true)
     try {
@@ -173,31 +198,38 @@ export default function Home() {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="from-scratch">From Scratch</option>
-                <option value="complete-code">Complete the Code</option>
+                <option value="from-scratch">📝 From Scratch (Problem Only)</option>
+                <option value="complete-code">🔧 Complete the Code (Function Templates)</option>
               </select>
             </div>
 
-            {formData.type === 'complete-code' && (
-              <div>
-                <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-2">
-                  Language
-                </label>
-                <select
-                  id="language"
-                  name="language"
-                  value={formData.language}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="javascript">JavaScript</option>
-                  <option value="python">Python</option>
-                  <option value="java">Java</option>
-                  <option value="cpp">C++</option>
-                  <option value="csharp">C#</option>
-                </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Languages {formData.type === 'complete-code' ? '(Select multiple for code templates)' : '(Select languages for problem labels)'}
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {availableLanguages.map((language) => (
+                  <label key={language.id} className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id={`languages-${language.id}`}
+                      name="languages"
+                      value={language.id}
+                      checked={formData.languages.includes(language.id)}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{language.name}</span>
+                  </label>
+                ))}
               </div>
-            )}
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.type === 'complete-code' 
+                  ? '🔧 Function templates with language labels will be generated' 
+                  : '📝 Problem statements with language labels will be generated (no code templates)'
+                }
+              </p>
+            </div>
 
             <div>
               <label htmlFor="difficultyLevel" className="block text-sm font-medium text-gray-700 mb-2">
@@ -355,7 +387,14 @@ export default function Home() {
               {questions.map((question) => (
                 <div key={question.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">{question.title}</h3>
+                    <div className="flex items-center space-x-3">
+                      <h3 className="text-lg font-semibold text-gray-800">{question.title}</h3>
+                      {question.language && (
+                        <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold rounded-full">
+                          {question.language.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={() => toggleQuestionSelection(question.id)}
                       className={`ml-4 p-2 rounded-full ${
@@ -401,11 +440,22 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {question.functionTemplate && (
+                    {question.implementation && (
                       <div className="mt-4">
-                        <h4 className="font-medium text-gray-700">Function Template:</h4>
-                        <pre className="bg-blue-50 p-3 rounded mt-1 text-sm border border-blue-200 overflow-x-auto">{question.functionTemplate}</pre>
-                        <p className="text-xs text-blue-600 mt-1">Complete the function above to solve the problem</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-gray-700">
+                            Function Template
+                          </h4>
+                          {question.language && (
+                            <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold rounded-full">
+                              {question.language.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <pre className="bg-gray-50 p-4 rounded-lg text-sm border border-gray-300 overflow-x-auto font-mono">{question.implementation}</pre>
+                        <p className="text-xs text-gray-600 mt-2 italic">
+                          🔧 Fill in the function body to complete the solution
+                        </p>
                       </div>
                     )}
                   </div>
