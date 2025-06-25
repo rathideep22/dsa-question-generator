@@ -223,9 +223,9 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
   // Ensure we have the right number of questions
   const expectedCount = 5 * formData.languages.length
   while (allQuestions.length < expectedCount) {
-    const questionIndex = Math.floor(allQuestions.length / formData.languages.length) + 1
-    const languageIndex = allQuestions.length % formData.languages.length
-    const language = formData.languages[languageIndex]
+    const questionIndex: number = Math.floor(allQuestions.length / formData.languages.length) + 1
+    const languageIndex: number = allQuestions.length % formData.languages.length
+    const language: string = formData.languages[languageIndex]
     
     allQuestions.push({
       id: `question-fallback-${questionIndex}-${language}`,
