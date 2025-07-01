@@ -12,6 +12,7 @@ interface Question {
   sampleOutput: string
   language?: string
   implementation?: string
+  hint?: string
 }
 
 interface InputParameters {
@@ -19,7 +20,7 @@ interface InputParameters {
   languages: string[]
   problem: string
   hint: string
-  type: 'from-scratch' | 'complete-code'
+  type: 'complete_code' | 'write_code'
   difficultyLevel: 'easy' | 'medium' | 'hard'
   topic: string
 }
@@ -69,55 +70,55 @@ export async function POST(request: NextRequest) {
       const sheets = google.sheets({ version: 'v4', auth })
 
       // Prepare data for the sheet - each question-language combination gets its own row
-      const timestamp = new Date().toISOString()
-      const values = questions.map((question) => [
-        timestamp, // Timestamp
-        inputParameters.positionName, // Position Name
-        inputParameters.topic, // Topic
-        inputParameters.difficultyLevel.toUpperCase(), // Difficulty Level
-        inputParameters.type === 'from-scratch' ? 'Complete Implementation' : 'Function Template', // Type
-        question.language?.toUpperCase() || 'N/A', // Language
-        inputParameters.problem || '', // Additional Problem Context
-        inputParameters.hint || '', // Hint/Focus
-        question.title, // Question Title
-        question.problemStatement, // Problem Statement
-        question.inputFormat, // Input Format
-        question.outputFormat, // Output Format
-        question.constraints, // Constraints
-        question.sampleInput, // Sample Input
-        question.sampleOutput, // Sample Output
-        question.implementation || '', // Implementation/Template Code
-        `Time: O(?), Space: O(?)`, // Complexity (placeholder)
-        `${inputParameters.languages.join(', ')}` // All Selected Languages
-      ])
+      // Group questions by their base question (same problem, different languages)
+      const questionGroups = new Map()
+      questions.forEach(question => {
+        // Extract base question ID (remove language suffix)
+        const baseId = question.id.replace(/-[^-]+$/, '')
+        if (!questionGroups.has(baseId)) {
+          questionGroups.set(baseId, [])
+        }
+        questionGroups.get(baseId).push(question)
+      })
 
-      // Enhanced header row with better organization
+      // Assign numbers to question groups
+      const questionNumbers = new Map()
+      let questionNumber = 1
+      questionGroups.forEach((group, baseId) => {
+        questionNumbers.set(baseId, questionNumber++)
+      })
+
+      const values = questions.map((question) => {
+        // Get question number from base ID
+        const baseId = question.id.replace(/-[^-]+$/, '')
+        const questionNum = questionNumbers.get(baseId) || 1
+
+        return [
+          inputParameters.positionName, // Position Name
+          question.language?.toUpperCase() || 'N/A', // Language
+          // Format problem field WITHOUT numbering for export - direct start, no labels
+          `${question.problemStatement}\n\nExample:\nInput: ${question.sampleInput}\nOutput: ${question.sampleOutput}\n\nConstraints:\n${question.constraints}${question.implementation ? `\n\n${question.implementation}` : ''}`,
+          inputParameters.hint || question.hint || '', // Hint
+          inputParameters.type, // Type
+          inputParameters.difficultyLevel // Difficulty level
+        ]
+      })
+
+      // Simple header row with only the requested columns
       const headerRow = [
-        'Timestamp',
-        'Position',
-        'Topic',
-        'Difficulty',
-        'Type',
+        'Position Name',
         'Language',
-        'Additional Context',
-        'Hint/Focus',
-        'Question Title',
-        'Problem Statement',
-        'Input Format',
-        'Output Format',
-        'Constraints',
-        'Sample Input',
-        'Sample Output',
-        'Code Implementation',
-        'Time/Space Complexity',
-        'All Selected Languages'
+        'Problem',
+        'Hint',
+        'Type',
+        'Difficulty level'
       ]
 
       // First, try to add headers (this will fail if headers already exist, which is fine)
       try {
         await sheets.spreadsheets.values.update({
           spreadsheetId: process.env.GOOGLE_SHEETS_ID,
-          range: 'Sheet1!A1:R1',
+          range: 'Sheet1!A1:F1',
           valueInputOption: 'RAW',
           requestBody: {
             values: [headerRow],
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       // Append the question data
       const result = await sheets.spreadsheets.values.append({
         spreadsheetId: process.env.GOOGLE_SHEETS_ID,
-        range: 'Sheet1!A:R',
+        range: 'Sheet1!A:F',
         valueInputOption: 'RAW',
         insertDataOption: 'INSERT_ROWS',
         requestBody: {

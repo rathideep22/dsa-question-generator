@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'react-hot-toast'
 import { Send, RefreshCw, CheckCircle2, FileSpreadsheet } from 'lucide-react'
 
@@ -15,6 +15,7 @@ interface Question {
   sampleOutput: string
   language?: string
   implementation?: string
+  hint?: string
 }
 
 interface FormData {
@@ -22,7 +23,7 @@ interface FormData {
   languages: string[]
   problem: string
   hint: string
-  type: 'from-scratch' | 'complete-code'
+  type: 'complete_code' | 'write_code'
   difficultyLevel: 'easy' | 'medium' | 'hard'
   topic: string
 }
@@ -33,7 +34,7 @@ export default function Home() {
     languages: ['javascript'],
     problem: '',
     hint: '',
-    type: 'complete-code',
+    type: 'complete_code',
     difficultyLevel: 'medium',
     topic: 'Arrays'
   })
@@ -42,6 +43,44 @@ export default function Home() {
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set())
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSendingToSheet, setIsSendingToSheet] = useState(false)
+  const [positionSearch, setPositionSearch] = useState('')
+  const [showPositionDropdown, setShowPositionDropdown] = useState(false)
+  const positionDropdownRef = useRef<HTMLDivElement>(null)
+
+  const availablePositions = [
+    // Senior Positions
+    'Software Engineer',
+    'Full Stack Developer',
+    'Backend Python Developer',
+    'Python Developer',
+    'React.js Developer',
+    'Node.js Developer',
+    'DevOps Engineer',
+    'AWS DevOps Engineer',
+    'Cloud Developer',
+    'MERN Stack Developer',
+    'Java Developer',
+    'Front-end Developer',
+    'Back-end Developer',
+    'Blockchain Developer',
+    'Salesforce Developer',
+    'Software Developer',
+    
+    // Junior/Entry Level Positions
+    'Associate Software Engineer',
+    'Junior Front-End Developer',
+    'Junior Back-End Developer',
+    'Full-Stack Developer Intern',
+    'Software Developer Trainee',
+    'Mobile App Developer (Trainee)',
+    'Cloud Support Associate',
+    'IT Support Engineer',
+    'QA/Test Engineer',
+    'Technical Support Executive',
+    'Web Developer Intern',
+    'Application Support Engineer',
+    'Graduate Engineer Trainee'
+  ]
 
   const availableLanguages = [
     { id: 'javascript', name: 'JavaScript' },
@@ -53,6 +92,10 @@ export default function Home() {
     { id: 'rust', name: 'Rust' },
     { id: 'typescript', name: 'TypeScript' }
   ]
+
+  const filteredPositions = availablePositions.filter(position =>
+    position.toLowerCase().includes(positionSearch.toLowerCase())
+  )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -70,6 +113,37 @@ export default function Home() {
         : [...prev.languages, languageId]
     }))
   }
+
+  const handleSelectAllLanguages = () => {
+    const allLanguageIds = availableLanguages.map(lang => lang.id)
+    setFormData(prev => ({
+      ...prev,
+      languages: prev.languages.length === allLanguageIds.length ? [] : allLanguageIds
+    }))
+  }
+
+  const handlePositionSelect = (position: string) => {
+    setFormData(prev => ({
+      ...prev,
+      positionName: position
+    }))
+    setPositionSearch(position)
+    setShowPositionDropdown(false)
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (positionDropdownRef.current && !positionDropdownRef.current.contains(event.target as Node)) {
+        setShowPositionDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const generateQuestions = async () => {
     if (formData.languages.length === 0) {
@@ -150,6 +224,31 @@ export default function Home() {
     }
   }
 
+  // Function to get question number for display
+  const getQuestionNumber = (questionId: string) => {
+    // Group questions by their base question (same problem, different languages)
+    const questionGroups = new Map()
+    questions.forEach(question => {
+      // Extract base question ID (remove language suffix)
+      const baseId = question.id.replace(/-[^-]+$/, '')
+      if (!questionGroups.has(baseId)) {
+        questionGroups.set(baseId, [])
+      }
+      questionGroups.get(baseId).push(question)
+    })
+
+    // Assign numbers to question groups
+    const questionNumbers = new Map()
+    let questionNumber = 1
+    questionGroups.forEach((group, baseId) => {
+      questionNumbers.set(baseId, questionNumber++)
+    })
+
+    // Get question number from base ID
+    const baseId = questionId.replace(/-[^-]+$/, '')
+    return questionNumbers.get(baseId) || 1
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -163,28 +262,48 @@ export default function Home() {
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">Question Parameters</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
+            <div className="relative" ref={positionDropdownRef}>
               <label htmlFor="positionName" className="block text-sm font-medium text-gray-700 mb-2">
                 Position Name
               </label>
-              <select
-                id="positionName"
-                name="positionName"
-                value={formData.positionName}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Software Engineer">Software Engineer</option>
-                <option value="Full Stack Developer">Full Stack Developer</option>
-                <option value="Software Development Engineer">Software Development Engineer</option>
-                <option value="Front-End Developer">Front-End Developer</option>
-                <option value="Python Developer">Python Developer</option>
-                <option value="React JS Developer">React JS Developer</option>
-                <option value="Web Developer">Web Developer</option>
-                <option value="Java Developer">Java Developer</option>
-                <option value="Data Scientist">Data Scientist</option>
-                <option value="DevOps Engineer">DevOps Engineer</option>
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  id="positionName"
+                  value={positionSearch || formData.positionName}
+                  onChange={(e) => {
+                    setPositionSearch(e.target.value)
+                    setShowPositionDropdown(true)
+                  }}
+                  onFocus={() => setShowPositionDropdown(true)}
+                  placeholder="Search positions..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+              
+              {showPositionDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  {filteredPositions.length > 0 ? (
+                    filteredPositions.map((position) => (
+                      <button
+                        key={position}
+                        type="button"
+                        onClick={() => handlePositionSelect(position)}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none border-b border-gray-100 last:border-b-0"
+                      >
+                        {position}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-gray-500 text-sm">No positions found</div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
@@ -198,15 +317,24 @@ export default function Home() {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="from-scratch">📝 From Scratch (Problem Only)</option>
-                <option value="complete-code">🔧 Complete the Code (Function Templates)</option>
+                <option value="complete_code">🔧 Complete the Code (Function Templates)</option>
+                <option value="write_code">📝 Write Code (From Scratch)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Languages {formData.type === 'complete-code' ? '(Select multiple for code templates)' : '(Select languages for problem labels)'}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Languages {formData.type === 'complete_code' ? '(Select multiple for code templates)' : '(Select languages for problem labels)'}
+                </label>
+                <button
+                  type="button"
+                  onClick={handleSelectAllLanguages}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {formData.languages.length === availableLanguages.length ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {availableLanguages.map((language) => (
                   <label key={language.id} className="flex items-center cursor-pointer">
@@ -224,7 +352,7 @@ export default function Home() {
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {formData.type === 'complete-code' 
+                {formData.type === 'complete_code' 
                   ? '🔧 Function templates with language labels will be generated' 
                   : '📝 Problem statements with language labels will be generated (no code templates)'
                 }
@@ -388,6 +516,9 @@ export default function Home() {
                 <div key={question.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
+                      <span className="text-lg font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                        {getQuestionNumber(question.id)}
+                      </span>
                       <h3 className="text-lg font-semibold text-gray-800">{question.title}</h3>
                       {question.language && (
                         <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold rounded-full">
@@ -439,6 +570,13 @@ export default function Home() {
                         <pre className="bg-gray-50 p-2 rounded mt-1 text-xs">{question.sampleOutput}</pre>
                       </div>
                     </div>
+
+                    {question.hint && (
+                      <div>
+                        <h4 className="font-medium text-gray-700">Hint:</h4>
+                        <p className="text-gray-600 mt-1 italic bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">💡 {question.hint}</p>
+                      </div>
+                    )}
 
                     {question.implementation && (
                       <div className="mt-4">

@@ -8,9 +8,23 @@ interface FormData {
   languages: string[]
   problem: string
   hint: string
-  type: 'from-scratch' | 'complete-code'
+  type: 'complete_code' | 'write_code'
   difficultyLevel: 'easy' | 'medium' | 'hard'
   topic: string
+}
+
+interface Question {
+  id: string
+  title: string
+  problemStatement: string
+  inputFormat: string
+  outputFormat: string
+  constraints: string
+  sampleInput: string
+  sampleOutput: string
+  language?: string
+  implementation?: string
+  hint?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -19,8 +33,8 @@ export async function POST(request: NextRequest) {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
-    if (formData.type === 'from-scratch') {
-      // For from-scratch, generate only problem statements (no code)
+    if (formData.type === 'write_code') {
+      // For write_code, generate only problem statements (no code)
       const basePrompt = generateBaseOnlyPrompt(formData)
       const result = await model.generateContent(basePrompt)
       const response = await result.response
@@ -42,7 +56,7 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({ questions: questionsWithLanguages })
     } else {
-      // For complete-code, generate with function templates
+      // For complete_code, generate with function templates
       const combinedPrompt = generateCombinedPrompt(formData)
       const result = await model.generateContent(combinedPrompt)
       const response = await result.response
@@ -62,16 +76,38 @@ export async function POST(request: NextRequest) {
 
 function generateCombinedPrompt(formData: FormData): string {
   const companyExamples = {
-    'Software Engineer': 'Google India, Microsoft India, Amazon India',
+    // Senior Positions
+    'Software Engineer': 'Google India, Microsoft India, Amazon India, Adobe India',
     'Full Stack Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
-    'Software Development Engineer': 'Amazon India, Microsoft India, Adobe India',
-    'Front-End Developer': 'Flipkart, Paytm, Myntra, Zomato',
-    'Python Developer': 'TCS, Infosys, Wipro, HCL, Accenture',
-    'React JS Developer': 'Flipkart, Swiggy, Zomato, PhonePe',
-    'Web Developer': 'TCS, Infosys, Capgemini, Cognizant',
-    'Java Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
-    'Data Scientist': 'Flipkart, Amazon India, Microsoft India, Mu Sigma',
-    'DevOps Engineer': 'Amazon India, Microsoft India, Flipkart, Paytm'
+    'Backend Python Developer': 'Amazon India, Flipkart, Zomato, Swiggy, Ola',
+    'Python Developer': 'TCS, Infosys, Wipro, HCL, Accenture, Tech Mahindra',
+    'React.js Developer': 'Flipkart, Swiggy, Zomato, PhonePe, Myntra',
+    'Node.js Developer': 'Paytm, Flipkart, Zomato, Swiggy, Ola',
+    'DevOps Engineer': 'Amazon India, Microsoft India, Flipkart, Paytm',
+    'AWS DevOps Engineer': 'Amazon India, Flipkart, Paytm, Zomato, Swiggy',
+    'Cloud Developer': 'Amazon India, Microsoft India, Google India, IBM India',
+    'MERN Stack Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
+    'Java Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra, Oracle',
+    'Front-end Developer': 'Flipkart, Paytm, Myntra, Zomato, Amazon India',
+    'Back-end Developer': 'Amazon India, Flipkart, Google India, Microsoft India',
+    'Blockchain Developer': 'WazirX, CoinDCX, Polygon, Zebpay, BitBNS',
+    'Salesforce Developer': 'TCS, Infosys, Accenture, Wipro, Deloitte',
+    'Software Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    
+    // Junior/Entry Level Positions
+    'Associate Software Engineer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    'Junior Front-End Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
+    'Junior Back-End Developer': 'Amazon India, Flipkart, Google India, Microsoft India',
+    'Full-Stack Developer Intern': 'Flipkart, Paytm, Zomato, Swiggy, Amazon India',
+    'Software Developer Trainee': 'TCS, Infosys, Wipro, HCL, Accenture',
+    'Mobile App Developer (Trainee)': 'Flipkart, Paytm, Ola, Uber India, MakeMyTrip',
+    'Cloud Support Associate': 'Amazon India, Microsoft India, Google India, IBM India',
+    'IT Support Engineer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    'QA/Test Engineer': 'TCS, Infosys, Wipro, Amazon India, Flipkart',
+    'Technical Support Executive': 'Amazon India, Flipkart, Microsoft India, Google India',
+    'Web Developer Intern': 'TCS, Infosys, Wipro, Flipkart, Paytm',
+    'Application Support Engineer': 'TCS, Infosys, Wipro, HCL, Accenture',
+    'Graduate Engineer Trainee': 'TCS, Infosys, Wipro, HCL, Tech Mahindra'
   }
 
   const relevantCompanies = companyExamples[formData.positionName as keyof typeof companyExamples] || 'top Indian IT companies'
@@ -83,7 +119,7 @@ function generateCombinedPrompt(formData: FormData): string {
   }
 
   const languageList = formData.languages.join(', ')
-  const isFromScratch = formData.type === 'from-scratch'
+      const isFromScratch = formData.type === 'write_code'
 
   return `
 You are an expert interviewer from ${relevantCompanies}. Generate exactly 5 high-quality Data Structures and Algorithms questions for ${formData.positionName} position interviews.
@@ -103,20 +139,45 @@ FORMAT for each question:
 QUESTION [NUMBER]:
 Title: [Concise, interview-style title]
 Problem Statement: [Clear, detailed problem description]
-Input Format: [Precise input specification]
-Output Format: [Clear output specification]
+Input Format: [Precise input specification. Use the exact bracket, quote, and whitespace style as in the sample below.]
+Output Format: [Clear output specification. Use the exact bracket, quote, and whitespace style as in the sample below.]
 Constraints: [Realistic constraints and complexity expectations]
-Sample Input: [Simple test case]
-Sample Output: [Correct corresponding output]
+Sample Input: [Simple test case. Use the exact formatting, spacing, and style as in the sample below.]
+Sample Output: [Correct corresponding output. Use the exact formatting, spacing, and style as in the sample below.]
+Hint: [CRITICAL: Plain English text ONLY! Max 50 words. ABSOLUTELY NO CODE, NO FUNCTION TEMPLATES, NO PROGRAMMING SYNTAX, NO LANGUAGE NAMES. Example: 'Explore dynamic programming or a more efficient approach that avoids brute force enumeration.' DO NOT include JAVA_TEMPLATE, function declarations, or any programming code.]
 
 ${isFromScratch ? `COMPLETE IMPLEMENTATIONS:` : `FUNCTION TEMPLATES:`}
 ${formData.languages.map(lang => {
   if (isFromScratch) {
-    return `${lang.toUpperCase()}_IMPLEMENTATION: [Complete working solution in ${lang} with proper input/output handling, comments, and full logic]`
+    return `${lang.toUpperCase()}_IMPLEMENTATION: [Complete working solution in ${lang} with proper input/output handling, comments, and full logic. Use the exact function signature, comment style, and indentation as in the sample below. Do not change whitespace or formatting.]`
   } else {
-    return `${lang.toUpperCase()}_TEMPLATE: [Function skeleton only - signature with "// Your code here" comment, no solution logic]`
+    return `${lang.toUpperCase()}_TEMPLATE: [Function skeleton only - signature with "// Your code here" comment, no solution logic. Use the exact formatting and style as in the sample below.]`
   }
 }).join('\n')}
+
+SAMPLE FORMAT (for all code, input, and output):
+
+/**
+* @param {character[][]} board
+* @return {void} Do not return anything, modify board in-place instead.
+*/
+var solveSudoku = function(board) {
+// Implement your solution here
+};
+
+Input:
+[
+["5","3",".",".","7",".",".",".","."],
+["6",".",".","1","9","5",".",".","."],
+[".","9","8",".",".",".",".","6","."],
+["8",".",".",".","6",".",".",".","3"],
+["4",".",".","8",".","3",".",".","1"],
+["7",".",".",".","2",".",".",".","6"],
+[".","6",".",".",".",".","2","8","."],
+[".",".",".","4","1","9",".",".","5"],
+[".",".",".",".","8",".",".","7","9"]
+]
+Output: Solved Sudoku board
 
 ${isFromScratch ? `
 IMPLEMENTATION REQUIREMENTS:
@@ -126,6 +187,7 @@ IMPLEMENTATION REQUIREMENTS:
 - Follow language best practices
 - Handle edge cases mentioned in constraints
 - Include main function or entry point if needed
+- Use the exact formatting, spacing, and comment style as in the sample above for all code, input, and output. Do not change whitespace or formatting.
 ` : `
 TEMPLATE REQUIREMENTS:
 - Generate ONLY function signatures with meaningful parameter names
@@ -134,6 +196,7 @@ TEMPLATE REQUIREMENTS:
 - Include return statement placeholder if applicable
 - DO NOT include any solution logic, implementation, or algorithm
 - Keep minimal - just empty function shells
+- Use the exact formatting, spacing, and comment style as in the sample above for all code, input, and output. Do not change whitespace or formatting.
 `}
 
 QUALITY REQUIREMENTS:
@@ -145,6 +208,7 @@ QUALITY REQUIREMENTS:
 6. 🧪 TESTABILITY: Good sample inputs covering typical scenarios
 7. ⚡ OPTIMIZATION: Include complexity discussions
 8. 🎨 VARIETY: Test different aspects of ${formData.topic}
+9. 💡 HINTS: CRITICAL - Generate ONLY plain English text hints (max 50 words). ABSOLUTELY NO CODE, FUNCTION NAMES, PROGRAMMING SYNTAX, or TEMPLATES. Example: 'Use sliding window technique' NOT 'JAVA_TEMPLATE: function()'
 
 Generate 5 distinct questions with ${isFromScratch ? 'complete implementations' : 'function templates'} in all requested languages (${languageList}).
 `
@@ -164,7 +228,43 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
       const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i)
       const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i)
       const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i)
-      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=(?:COMPLETE IMPLEMENTATIONS:|FUNCTION TEMPLATES:))/i)
+      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:|COMPLETE IMPLEMENTATIONS:|FUNCTION TEMPLATES:)/i)
+      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=COMPLETE IMPLEMENTATIONS:|FUNCTION TEMPLATES:|$)/i)
+
+      // Clean hint text - remove any code templates or programming syntax
+      const cleanHint = (hintText: string): string => {
+        if (!hintText) return ''
+        
+        // Remove any code blocks, function templates, and programming syntax
+        let cleaned = hintText
+          .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+          .replace(/JAVA_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove JAVA_TEMPLATE
+          .replace(/PYTHON_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove PYTHON_TEMPLATE  
+          .replace(/JAVASCRIPT_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove JAVASCRIPT_TEMPLATE
+          .replace(/CPP_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove CPP_TEMPLATE
+          .replace(/CSHARP_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove CSHARP_TEMPLATE
+          .replace(/GO_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove GO_TEMPLATE
+          .replace(/RUST_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove RUST_TEMPLATE
+          .replace(/TYPESCRIPT_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove TYPESCRIPT_TEMPLATE
+          .replace(/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+          .replace(/\/\/.*$/gm, '') // Remove // comments
+          .replace(/\{[\s\S]*?\}/g, '') // Remove { } blocks
+          .replace(/\([\s\S]*?\)/g, '') // Remove function parentheses
+          .replace(/class\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove class definitions
+          .replace(/function\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove function definitions
+          .replace(/def\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove Python function definitions
+          .replace(/public\s+.*?(?=\n\n|$)/gi, '') // Remove public methods
+          .replace(/private\s+.*?(?=\n\n|$)/gi, '') // Remove private methods
+          .trim()
+        
+        // Take only the first line/sentence if it's clean text
+        const firstSentence = cleaned.split(/[.!?]\s+/)[0]
+        if (firstSentence && firstSentence.length > 10 && firstSentence.length < 200 && !firstSentence.includes('{') && !firstSentence.includes('(')) {
+          return firstSentence
+        }
+        
+        return cleaned.slice(0, 200).trim() // Limit to 200 chars max
+      }
 
       const baseQuestion = {
         id: `question-${Date.now()}-${i}`,
@@ -174,17 +274,18 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
         outputFormat: outputMatch?.[1]?.trim() || 'Output format not specified',
         constraints: constraintsMatch?.[1]?.trim() || 'Constraints not specified',
         sampleInput: sampleInputMatch?.[1]?.trim() || 'Sample input not provided',
-        sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided'
+        sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided',
+        hint: cleanHint(hintMatch?.[1]?.trim() || '')
       }
 
       // Extract implementations for each language
       for (const language of formData.languages) {
-        const langKey = formData.type === 'from-scratch' 
+        const langKey = formData.type === 'write_code' 
           ? `${language.toUpperCase()}_IMPLEMENTATION:` 
           : `${language.toUpperCase()}_TEMPLATE:`
         
         const implementationMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
-          formData.type === 'from-scratch' 
+          formData.type === 'write_code' 
             ? `${l.toUpperCase()}_IMPLEMENTATION:` 
             : `${l.toUpperCase()}_TEMPLATE:`
         ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
@@ -214,7 +315,8 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
           sampleInput: '',
           sampleOutput: '',
           language: language,
-          implementation: ''
+          implementation: '',
+          hint: ''
         })
       }
     }
@@ -237,7 +339,8 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
       sampleInput: '',
       sampleOutput: '',
       language: language,
-      implementation: ''
+      implementation: '',
+      hint: ''
     })
   }
 
@@ -246,16 +349,38 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
 
 function generateBaseOnlyPrompt(formData: FormData): string {
   const companyExamples = {
-    'Software Engineer': 'Google India, Microsoft India, Amazon India',
+    // Senior Positions
+    'Software Engineer': 'Google India, Microsoft India, Amazon India, Adobe India',
     'Full Stack Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
-    'Software Development Engineer': 'Amazon India, Microsoft India, Adobe India',
-    'Front-End Developer': 'Flipkart, Paytm, Myntra, Zomato',
-    'Python Developer': 'TCS, Infosys, Wipro, HCL, Accenture',
-    'React JS Developer': 'Flipkart, Swiggy, Zomato, PhonePe',
-    'Web Developer': 'TCS, Infosys, Capgemini, Cognizant',
-    'Java Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
-    'Data Scientist': 'Flipkart, Amazon India, Microsoft India, Mu Sigma',
-    'DevOps Engineer': 'Amazon India, Microsoft India, Flipkart, Paytm'
+    'Backend Python Developer': 'Amazon India, Flipkart, Zomato, Swiggy, Ola',
+    'Python Developer': 'TCS, Infosys, Wipro, HCL, Accenture, Tech Mahindra',
+    'React.js Developer': 'Flipkart, Swiggy, Zomato, PhonePe, Myntra',
+    'Node.js Developer': 'Paytm, Flipkart, Zomato, Swiggy, Ola',
+    'DevOps Engineer': 'Amazon India, Microsoft India, Flipkart, Paytm',
+    'AWS DevOps Engineer': 'Amazon India, Flipkart, Paytm, Zomato, Swiggy',
+    'Cloud Developer': 'Amazon India, Microsoft India, Google India, IBM India',
+    'MERN Stack Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
+    'Java Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra, Oracle',
+    'Front-end Developer': 'Flipkart, Paytm, Myntra, Zomato, Amazon India',
+    'Back-end Developer': 'Amazon India, Flipkart, Google India, Microsoft India',
+    'Blockchain Developer': 'WazirX, CoinDCX, Polygon, Zebpay, BitBNS',
+    'Salesforce Developer': 'TCS, Infosys, Accenture, Wipro, Deloitte',
+    'Software Developer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    
+    // Junior/Entry Level Positions
+    'Associate Software Engineer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    'Junior Front-End Developer': 'Flipkart, Paytm, Zomato, Swiggy, MakeMyTrip',
+    'Junior Back-End Developer': 'Amazon India, Flipkart, Google India, Microsoft India',
+    'Full-Stack Developer Intern': 'Flipkart, Paytm, Zomato, Swiggy, Amazon India',
+    'Software Developer Trainee': 'TCS, Infosys, Wipro, HCL, Accenture',
+    'Mobile App Developer (Trainee)': 'Flipkart, Paytm, Ola, Uber India, MakeMyTrip',
+    'Cloud Support Associate': 'Amazon India, Microsoft India, Google India, IBM India',
+    'IT Support Engineer': 'TCS, Infosys, Wipro, HCL, Tech Mahindra',
+    'QA/Test Engineer': 'TCS, Infosys, Wipro, Amazon India, Flipkart',
+    'Technical Support Executive': 'Amazon India, Flipkart, Microsoft India, Google India',
+    'Web Developer Intern': 'TCS, Infosys, Wipro, Flipkart, Paytm',
+    'Application Support Engineer': 'TCS, Infosys, Wipro, HCL, Accenture',
+    'Graduate Engineer Trainee': 'TCS, Infosys, Wipro, HCL, Tech Mahindra'
   }
 
   const relevantCompanies = companyExamples[formData.positionName as keyof typeof companyExamples] || 'top Indian IT companies'
@@ -288,6 +413,7 @@ Output Format: [Clear output specification]
 Constraints: [Realistic constraints and complexity expectations]
 Sample Input: [Simple test case]
 Sample Output: [Correct corresponding output]
+Hint: [CRITICAL: Plain English text ONLY! Max 50 words. ABSOLUTELY NO CODE, NO FUNCTION TEMPLATES, NO PROGRAMMING SYNTAX, NO LANGUAGE NAMES. Example: 'Explore dynamic programming or a more efficient approach that avoids brute force enumeration.' DO NOT include JAVA_TEMPLATE, function declarations, or any programming code.]
 
 IMPORTANT: 
 - Generate ONLY problem statements
@@ -304,6 +430,7 @@ QUALITY REQUIREMENTS:
 6. 🧪 TESTABILITY: Good sample inputs covering typical scenarios
 7. ⚡ OPTIMIZATION: Include complexity discussions
 8. 🎨 VARIETY: Test different aspects of ${formData.topic}
+9. 💡 HINTS: CRITICAL - Generate ONLY plain English text hints (max 50 words). ABSOLUTELY NO CODE, FUNCTION NAMES, PROGRAMMING SYNTAX, or TEMPLATES. Example: 'Use sliding window technique' NOT 'JAVA_TEMPLATE: function()'
 
 Generate 5 distinct, interview-ready questions that a ${formData.positionName} candidate would face at ${relevantCompanies}.
 `
@@ -323,7 +450,43 @@ function parseBaseQuestions(text: string) {
       const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i)
       const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i)
       const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i)
-      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i)
+      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:)/i)
+      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i)
+
+      // Clean hint text - remove any code templates or programming syntax
+      const cleanHint = (hintText: string): string => {
+        if (!hintText) return ''
+        
+        // Remove any code blocks, function templates, and programming syntax
+        let cleaned = hintText
+          .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+          .replace(/JAVA_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove JAVA_TEMPLATE
+          .replace(/PYTHON_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove PYTHON_TEMPLATE  
+          .replace(/JAVASCRIPT_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove JAVASCRIPT_TEMPLATE
+          .replace(/CPP_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove CPP_TEMPLATE
+          .replace(/CSHARP_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove CSHARP_TEMPLATE
+          .replace(/GO_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove GO_TEMPLATE
+          .replace(/RUST_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove RUST_TEMPLATE
+          .replace(/TYPESCRIPT_TEMPLATE:[\s\S]*?(?=\n\n|$)/gi, '') // Remove TYPESCRIPT_TEMPLATE
+          .replace(/\*[\s\S]*?\*\//g, '') // Remove /* */ comments
+          .replace(/\/\/.*$/gm, '') // Remove // comments
+          .replace(/\{[\s\S]*?\}/g, '') // Remove { } blocks
+          .replace(/\([\s\S]*?\)/g, '') // Remove function parentheses
+          .replace(/class\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove class definitions
+          .replace(/function\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove function definitions
+          .replace(/def\s+\w+[\s\S]*?(?=\n\n|$)/gi, '') // Remove Python function definitions
+          .replace(/public\s+.*?(?=\n\n|$)/gi, '') // Remove public methods
+          .replace(/private\s+.*?(?=\n\n|$)/gi, '') // Remove private methods
+          .trim()
+        
+        // Take only the first line/sentence if it's clean text
+        const firstSentence = cleaned.split(/[.!?]\s+/)[0]
+        if (firstSentence && firstSentence.length > 10 && firstSentence.length < 200 && !firstSentence.includes('{') && !firstSentence.includes('(')) {
+          return firstSentence
+        }
+        
+        return cleaned.slice(0, 200).trim() // Limit to 200 chars max
+      }
 
       const question = {
         id: `question-${Date.now()}-${i}`,
@@ -333,7 +496,8 @@ function parseBaseQuestions(text: string) {
         outputFormat: outputMatch?.[1]?.trim() || 'Output format not specified',
         constraints: constraintsMatch?.[1]?.trim() || 'Constraints not specified',
         sampleInput: sampleInputMatch?.[1]?.trim() || 'Sample input not provided',
-        sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided'
+        sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided',
+        hint: cleanHint(hintMatch?.[1]?.trim() || '')
       }
 
       questions.push(question)
