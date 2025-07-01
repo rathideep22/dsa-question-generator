@@ -31,9 +31,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData: FormData = await request.json()
 
-    console.log('=== GENERATION START ===')
-    console.log('Form Data:', JSON.stringify(formData, null, 2))
-
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     if (formData.type === 'write_code') {
@@ -61,27 +58,11 @@ export async function POST(request: NextRequest) {
     } else {
       // For complete_code, generate with function templates
       const combinedPrompt = generateCombinedPrompt(formData)
-      console.log('Generated Prompt Length:', combinedPrompt.length)
-      console.log('Prompt Preview:', combinedPrompt.substring(0, 500) + '...')
-      
       const result = await model.generateContent(combinedPrompt)
       const response = await result.response
       const text = response.text()
-      
-      console.log('=== GEMINI RESPONSE ===')
-      console.log('Response Length:', text.length)
-      console.log('Response Preview:', text.substring(0, 1000) + '...')
 
       const allQuestions = parseQuestionsWithImplementations(text, formData)
-      
-      console.log('=== PARSED QUESTIONS ===')
-      allQuestions.forEach((q, index) => {
-        console.log(`Question ${index + 1} (${q.language}):`)
-        console.log(`- Title: ${q.title}`)
-        console.log(`- Implementation length: ${q.implementation?.length || 0}`)
-        console.log(`- Implementation preview: ${q.implementation?.substring(0, 100) || 'NONE'}...`)
-      })
-      
       return NextResponse.json({ questions: allQuestions })
     }
   } catch (error) {
@@ -174,36 +155,15 @@ ${formData.languages.map(lang => {
   }
 }).join('\n')}
 
-SAMPLE TEMPLATE FORMATS (use exact style):
+SAMPLE FORMAT (for all code, input, and output):
 
-JAVASCRIPT_TEMPLATE:
 /**
-* @param {number[]} arr
-* @param {number} k
-* @return {number}
+* @param {character[][]} board
+* @return {void} Do not return anything, modify board in-place instead.
 */
-const findKthLargest = (arr, k) => {
-    // Your code here
+var solveSudoku = function(board) {
+// Implement your solution here
 };
-
-PYTHON_TEMPLATE:
-def find_kth_largest(arr: list[int], k: int) -> int:
-    """
-    Find the kth largest element in array
-    """
-    # Your code here
-
-JAVA_TEMPLATE:
-class Solution {
-    /**
-     * @param int[] arr
-     * @param int k
-     * @return int
-     */
-    public int findKthLargest(int[] arr, int k) {
-        // Your code here
-    }
-}
 
 Input:
 [
@@ -236,7 +196,6 @@ TEMPLATE REQUIREMENTS:
 - Include return statement placeholder if applicable
 - DO NOT include any solution logic, implementation, or algorithm
 - Keep minimal - just empty function shells
-- MUST include EXACTLY the format: JAVASCRIPT_TEMPLATE:, PYTHON_TEMPLATE:, etc.
 - Use the exact formatting, spacing, and comment style as in the sample above for all code, input, and output. Do not change whitespace or formatting.
 `}
 
@@ -321,122 +280,33 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
 
       // Extract implementations for each language
       for (const language of formData.languages) {
-        const langKey = formData.type === 'write_code' 
-          ? `${language.toUpperCase()}_IMPLEMENTATION:` 
+        const langKey = formData.type === 'write_code'
+          ? `${language.toUpperCase()}_IMPLEMENTATION:`
           : `${language.toUpperCase()}_TEMPLATE:`
-        
-        // Try multiple regex patterns to find the implementation/template
-        let implementation = ''
-        
-        // Pattern 1: Simple direct match for LANGUAGE_TEMPLATE:
-        const simpleMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]*?)(?=\\n\\n|${formData.languages.map(l => l.toUpperCase()).filter(l => l !== language.toUpperCase()).join('|')}|QUESTION|$)`, 'i'))
-        
-        if (simpleMatch) {
-          implementation = simpleMatch[1].trim()
-          console.log(`Found simple match for ${language}:`, implementation.substring(0, 200))
-        } else {
-          // Pattern 2: Exact match with LANGUAGE_TEMPLATE:
-          const exactMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
-            formData.type === 'write_code' 
-              ? `${l.toUpperCase()}_IMPLEMENTATION:` 
-              : `${l.toUpperCase()}_TEMPLATE:`
-          ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
-          
-          if (exactMatch) {
-            implementation = exactMatch[1].trim()
-            console.log(`Found exact match for ${language}:`, implementation.substring(0, 200))
-          } else {
-          // Pattern 2: Look for the language name followed by any code block
-          const langPattern = new RegExp(`${language.toUpperCase()}[\\s\\S]*?\\n([\\s\\S]+?)(?=\\n\\n|${formData.languages.map(l => l.toUpperCase()).filter(l => l !== language.toUpperCase()).join('|')}|QUESTION|$)`, 'i')
-          const langMatch = block.match(langPattern)
-          
-          if (langMatch) {
-            implementation = langMatch[1].trim()
-            console.log(`Found lang pattern for ${language}:`, implementation.substring(0, 200))
-          } else {
-            // Pattern 3: Very specific pattern for the format we're seeing
-            const specificPattern = new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n([\\s\\S]*?)(?=\\n\\n|QUESTION|$)`, 'i')
-            const specificMatch = block.match(specificPattern)
-            
-            if (specificMatch) {
-              implementation = specificMatch[1].trim()
-              console.log(`Found specific pattern for ${language}:`, implementation.substring(0, 200))
-            } else {
-              // Pattern 4: Look for any code block after the hint
-              const codeBlockMatch = block.match(/Hint:[\s\S]*?```[\s\S]*?```/i)
-              if (codeBlockMatch) {
-                implementation = codeBlockMatch[0].replace(/Hint:[\s\S]*?```/i, '').replace(/```/g, '').trim()
-                console.log(`Found code block for ${language}:`, implementation.substring(0, 200))
-              }
-            }
-          }
-        }
-        
-        // Debug: Log what we found
-        console.log(`Language: ${language}, Found implementation: ${implementation ? 'YES' : 'NO'}`)
-        if (!implementation) {
-          console.log(`Block content for ${language}:`, block.substring(0, 1000))
-        }
-        
-        // Fallback templates if Gemini doesn't generate them
-        if (formData.type === 'complete_code' && !implementation) {
-          console.log(`Missing template for ${language}, providing fallback`)
-          
-          const fallbackTemplates = {
-            javascript: `/**
- * @param {number[]} nums
- * @return {number}
- */
-const removeDuplicates = (nums) => {
-    // Your code here
-};`,
-            python: `def remove_duplicates(nums: list[int]) -> int:
-    """
-    Remove duplicates in-place and return new length
-    """
-    # Your code here`,
-            java: `class Solution {
-    /**
-     * @param int[] nums
-     * @return int
-     */
-    public int removeDuplicates(int[] nums) {
-        // Your code here
-    }
-}`,
-            cpp: `int removeDuplicates(vector<int>& nums) {
-    // Your code here
-}`,
-            csharp: `public class Solution {
-    public int RemoveDuplicates(int[] nums) {
-        // Your code here
-    }
-}`,
-            go: `func removeDuplicates(nums []int) int {
-    // Your code here
-    return 0
-}`,
-            rust: `fn remove_duplicates(nums: &mut Vec<i32>) -> i32 {
-    // Your code here
-}`,
-            typescript: `/**
- * @param {number[]} nums
- * @return {number}
- */
-const removeDuplicates = (nums: number[]): number => {
-    // Your code here
-};`
-          }
-          
-          implementation = fallbackTemplates[language as keyof typeof fallbackTemplates] || `// Function template for ${language}\n// Your code here`
-        }
+
+        // Build lookahead pattern for other language keys (if any)
+        const otherLangKeys = formData.languages
+          .filter(l => l !== language)
+          .map(l => (formData.type === 'write_code'
+            ? `${l.toUpperCase()}_IMPLEMENTATION:`
+            : `${l.toUpperCase()}_TEMPLATE:`))
+
+        const otherPattern = otherLangKeys.length
+          ? `${otherLangKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|`
+          : ''
+
+        const implementationRegex = new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${otherPattern}QUESTION|$)`, 'i')
+
+        const implementationMatch = block.match(implementationRegex)
+
+        const implementation = implementationMatch?.[1]?.trim() || ''
 
         allQuestions.push({
           ...baseQuestion,
           id: `${baseQuestion.id}-${language}`,
           language: language,
           implementation: implementation
-        });
+        })
       }
 
     } catch (parseError) {
@@ -456,17 +326,17 @@ const removeDuplicates = (nums: number[]): number => {
           language: language,
           implementation: '',
           hint: ''
-        });
+        })
       }
     }
   }
 
   // Ensure we have the right number of questions
-  const expectedCount = 5 * formData.languages.length;
+  const expectedCount = 5 * formData.languages.length
   while (allQuestions.length < expectedCount) {
-    const questionIndex: number = Math.floor(allQuestions.length / formData.languages.length) + 1;
-    const languageIndex: number = allQuestions.length % formData.languages.length;
-    const language: string = formData.languages[languageIndex];
+    const questionIndex: number = Math.floor(allQuestions.length / formData.languages.length) + 1
+    const languageIndex: number = allQuestions.length % formData.languages.length
+    const language: string = formData.languages[languageIndex]
     
     allQuestions.push({
       id: `question-fallback-${questionIndex}-${language}`,
@@ -480,10 +350,10 @@ const removeDuplicates = (nums: number[]): number => {
       language: language,
       implementation: '',
       hint: ''
-    });
+    })
   }
 
-  return allQuestions.slice(0, expectedCount);
+  return allQuestions.slice(0, expectedCount)
 }
 
 function generateBaseOnlyPrompt(formData: FormData): string {
@@ -576,21 +446,21 @@ Generate 5 distinct, interview-ready questions that a ${formData.positionName} c
 }
 
 function parseBaseQuestions(text: string) {
-  const questions = [];
-  const questionBlocks = text.split(/QUESTION \d+:/i).slice(1);
+  const questions = []
+  const questionBlocks = text.split(/QUESTION \d+:/i).slice(1)
 
   for (let i = 0; i < questionBlocks.length && i < 5; i++) {
-    const block = questionBlocks[i].trim();
+    const block = questionBlocks[i].trim()
     
     try {
-      const titleMatch = block.match(/Title:\s*(.+?)(?=\n)/i);
-      const problemMatch = block.match(/Problem Statement:\s*([\s\S]+?)(?=Input Format:)/i);
-      const inputMatch = block.match(/Input Format:\s*([\s\S]+?)(?=Output Format:)/i);
-      const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i);
-      const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i);
-      const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i);
-      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:)/i);
-      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i);
+      const titleMatch = block.match(/Title:\s*(.+?)(?=\n)/i)
+      const problemMatch = block.match(/Problem Statement:\s*([\s\S]+?)(?=Input Format:)/i)
+      const inputMatch = block.match(/Input Format:\s*([\s\S]+?)(?=Output Format:)/i)
+      const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i)
+      const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i)
+      const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i)
+      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:)/i)
+      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i)
 
       // Clean hint text - remove any code templates or programming syntax
       const cleanHint = (hintText: string): string => {
@@ -637,9 +507,9 @@ function parseBaseQuestions(text: string) {
         sampleInput: sampleInputMatch?.[1]?.trim() || 'Sample input not provided',
         sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided',
         hint: cleanHint(hintMatch?.[1]?.trim() || '')
-      };
+      }
 
-      questions.push(question);
+      questions.push(question)
     } catch (parseError) {
       console.error('Error parsing question block:', parseError)
       questions.push({
@@ -651,7 +521,7 @@ function parseBaseQuestions(text: string) {
         constraints: '',
         sampleInput: '',
         sampleOutput: ''
-      });
+      })
     }
   }
 
@@ -666,8 +536,8 @@ function parseBaseQuestions(text: string) {
       constraints: '',
       sampleInput: '',
       sampleOutput: ''
-    });
+    })
   }
 
-  return questions.slice(0, 5);
-}
+  return questions.slice(0, 5)
+} 
