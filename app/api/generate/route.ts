@@ -155,15 +155,36 @@ ${formData.languages.map(lang => {
   }
 }).join('\n')}
 
-SAMPLE FORMAT (for all code, input, and output):
+SAMPLE TEMPLATE FORMATS (use exact style):
 
+JAVASCRIPT_TEMPLATE:
 /**
-* @param {character[][]} board
-* @return {void} Do not return anything, modify board in-place instead.
+* @param {number[]} arr
+* @param {number} k
+* @return {number}
 */
-var solveSudoku = function(board) {
-// Implement your solution here
+const findKthLargest = (arr, k) => {
+    // Your code here
 };
+
+PYTHON_TEMPLATE:
+def find_kth_largest(arr: list[int], k: int) -> int:
+    """
+    Find the kth largest element in array
+    """
+    # Your code here
+
+JAVA_TEMPLATE:
+class Solution {
+    /**
+     * @param int[] arr
+     * @param int k
+     * @return int
+     */
+    public int findKthLargest(int[] arr, int k) {
+        // Your code here
+    }
+}
 
 Input:
 [
@@ -196,6 +217,7 @@ TEMPLATE REQUIREMENTS:
 - Include return statement placeholder if applicable
 - DO NOT include any solution logic, implementation, or algorithm
 - Keep minimal - just empty function shells
+- MUST include EXACTLY the format: JAVASCRIPT_TEMPLATE:, PYTHON_TEMPLATE:, etc.
 - Use the exact formatting, spacing, and comment style as in the sample above for all code, input, and output. Do not change whitespace or formatting.
 `}
 
@@ -290,7 +312,63 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
             : `${l.toUpperCase()}_TEMPLATE:`
         ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
 
-        const implementation = implementationMatch?.[1]?.trim() || ''
+        let implementation = implementationMatch?.[1]?.trim() || ''
+        
+        // Fallback templates if Gemini doesn't generate them
+        if (formData.type === 'complete_code' && !implementation) {
+          console.log(`Missing template for ${language}, providing fallback`)
+          
+          const fallbackTemplates = {
+            javascript: `/**
+ * @param {number[]} arr
+ * @param {number} k  
+ * @return {number}
+ */
+const solution = (arr, k) => {
+    // Your code here
+};`,
+            python: `def solution(arr: list[int], k: int) -> int:
+    """
+    Your implementation here
+    """
+    # Your code here`,
+            java: `class Solution {
+    /**
+     * @param int[] arr
+     * @param int k
+     * @return int
+     */
+    public int solution(int[] arr, int k) {
+        // Your code here
+    }
+}`,
+            cpp: `int solution(vector<int>& arr, int k) {
+    // Your code here
+}`,
+            csharp: `public class Solution {
+    public int Solution(int[] arr, int k) {
+        // Your code here
+    }
+}`,
+            go: `func solution(arr []int, k int) int {
+    // Your code here
+    return 0
+}`,
+            rust: `fn solution(arr: &Vec<i32>, k: i32) -> i32 {
+    // Your code here
+}`,
+            typescript: `/**
+ * @param {number[]} arr
+ * @param {number} k
+ * @return {number}
+ */
+const solution = (arr: number[], k: number): number => {
+    // Your code here
+};`
+          }
+          
+          implementation = fallbackTemplates[language as keyof typeof fallbackTemplates] || `// Function template for ${language}\n// Your code here`
+        }
 
         allQuestions.push({
           ...baseQuestion,
