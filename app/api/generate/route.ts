@@ -436,7 +436,7 @@ const removeDuplicates = (nums: number[]): number => {
           id: `${baseQuestion.id}-${language}`,
           language: language,
           implementation: implementation
-        })
+        });
       }
 
     } catch (parseError) {
@@ -456,7 +456,7 @@ const removeDuplicates = (nums: number[]): number => {
           language: language,
           implementation: '',
           hint: ''
-        })
+        });
       }
     }
   }
@@ -480,7 +480,7 @@ const removeDuplicates = (nums: number[]): number => {
       language: language,
       implementation: '',
       hint: ''
-    })
+    });
   }
 
   return allQuestions.slice(0, expectedCount)
@@ -639,7 +639,7 @@ function parseBaseQuestions(text: string) {
         hint: cleanHint(hintMatch?.[1]?.trim() || '')
       }
 
-      questions.push(question)
+      questions.push(question);
     } catch (parseError) {
       console.error('Error parsing question block:', parseError)
       questions.push({
@@ -651,7 +651,7 @@ function parseBaseQuestions(text: string) {
         constraints: '',
         sampleInput: '',
         sampleOutput: ''
-      })
+      });
     }
   }
 
@@ -666,7 +666,7 @@ function parseBaseQuestions(text: string) {
       constraints: '',
       sampleInput: '',
       sampleOutput: ''
-    })
+    });
   }
 
   return questions.slice(0, 5)
