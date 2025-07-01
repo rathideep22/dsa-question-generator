@@ -328,27 +328,46 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
         // Try multiple regex patterns to find the implementation/template
         let implementation = ''
         
-        // Pattern 1: Exact match with LANGUAGE_TEMPLATE:
-        const exactMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
-          formData.type === 'write_code' 
-            ? `${l.toUpperCase()}_IMPLEMENTATION:` 
-            : `${l.toUpperCase()}_TEMPLATE:`
-        ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
+        // Pattern 1: Simple direct match for LANGUAGE_TEMPLATE:
+        const simpleMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]*?)(?=\\n\\n|${formData.languages.map(l => l.toUpperCase()).filter(l => l !== language.toUpperCase()).join('|')}|QUESTION|$)`, 'i'))
         
-        if (exactMatch) {
-          implementation = exactMatch[1].trim()
+        if (simpleMatch) {
+          implementation = simpleMatch[1].trim()
+          console.log(`Found simple match for ${language}:`, implementation.substring(0, 200))
         } else {
+          // Pattern 2: Exact match with LANGUAGE_TEMPLATE:
+          const exactMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
+            formData.type === 'write_code' 
+              ? `${l.toUpperCase()}_IMPLEMENTATION:` 
+              : `${l.toUpperCase()}_TEMPLATE:`
+          ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
+          
+          if (exactMatch) {
+            implementation = exactMatch[1].trim()
+            console.log(`Found exact match for ${language}:`, implementation.substring(0, 200))
+          } else {
           // Pattern 2: Look for the language name followed by any code block
           const langPattern = new RegExp(`${language.toUpperCase()}[\\s\\S]*?\\n([\\s\\S]+?)(?=\\n\\n|${formData.languages.map(l => l.toUpperCase()).filter(l => l !== language.toUpperCase()).join('|')}|QUESTION|$)`, 'i')
           const langMatch = block.match(langPattern)
           
           if (langMatch) {
             implementation = langMatch[1].trim()
+            console.log(`Found lang pattern for ${language}:`, implementation.substring(0, 200))
           } else {
-            // Pattern 3: Look for any code block after the hint
-            const codeBlockMatch = block.match(/Hint:[\s\S]*?```[\s\S]*?```/i)
-            if (codeBlockMatch) {
-              implementation = codeBlockMatch[0].replace(/Hint:[\s\S]*?```/i, '').replace(/```/g, '').trim()
+            // Pattern 3: Very specific pattern for the format we're seeing
+            const specificPattern = new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\n([\\s\\S]*?)(?=\\n\\n|QUESTION|$)`, 'i')
+            const specificMatch = block.match(specificPattern)
+            
+            if (specificMatch) {
+              implementation = specificMatch[1].trim()
+              console.log(`Found specific pattern for ${language}:`, implementation.substring(0, 200))
+            } else {
+              // Pattern 4: Look for any code block after the hint
+              const codeBlockMatch = block.match(/Hint:[\s\S]*?```[\s\S]*?```/i)
+              if (codeBlockMatch) {
+                implementation = codeBlockMatch[0].replace(/Hint:[\s\S]*?```/i, '').replace(/```/g, '').trim()
+                console.log(`Found code block for ${language}:`, implementation.substring(0, 200))
+              }
             }
           }
         }
