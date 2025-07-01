@@ -306,13 +306,39 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
           ? `${language.toUpperCase()}_IMPLEMENTATION:` 
           : `${language.toUpperCase()}_TEMPLATE:`
         
-        const implementationMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
+        // Try multiple regex patterns to find the implementation/template
+        let implementation = ''
+        
+        // Pattern 1: Exact match with LANGUAGE_TEMPLATE:
+        const exactMatch = block.match(new RegExp(`${langKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*([\\s\\S]+?)(?=${formData.languages.map(l => 
           formData.type === 'write_code' 
             ? `${l.toUpperCase()}_IMPLEMENTATION:` 
             : `${l.toUpperCase()}_TEMPLATE:`
         ).filter(k => k !== langKey).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|QUESTION|$)`, 'i'))
-
-        let implementation = implementationMatch?.[1]?.trim() || ''
+        
+        if (exactMatch) {
+          implementation = exactMatch[1].trim()
+        } else {
+          // Pattern 2: Look for the language name followed by any code block
+          const langPattern = new RegExp(`${language.toUpperCase()}[\\s\\S]*?\\n([\\s\\S]+?)(?=\\n\\n|${formData.languages.map(l => l.toUpperCase()).filter(l => l !== language.toUpperCase()).join('|')}|QUESTION|$)`, 'i')
+          const langMatch = block.match(langPattern)
+          
+          if (langMatch) {
+            implementation = langMatch[1].trim()
+          } else {
+            // Pattern 3: Look for any code block after the hint
+            const codeBlockMatch = block.match(/Hint:[\s\S]*?```[\s\S]*?```/i)
+            if (codeBlockMatch) {
+              implementation = codeBlockMatch[0].replace(/Hint:[\s\S]*?```/i, '').replace(/```/g, '').trim()
+            }
+          }
+        }
+        
+        // Debug: Log what we found
+        console.log(`Language: ${language}, Found implementation: ${implementation ? 'YES' : 'NO'}`)
+        if (!implementation) {
+          console.log(`Block content for ${language}:`, block.substring(0, 1000))
+        }
         
         // Fallback templates if Gemini doesn't generate them
         if (formData.type === 'complete_code' && !implementation) {
@@ -320,49 +346,46 @@ function parseQuestionsWithImplementations(text: string, formData: FormData) {
           
           const fallbackTemplates = {
             javascript: `/**
- * @param {number[]} arr
- * @param {number} k  
+ * @param {number[]} nums
  * @return {number}
  */
-const solution = (arr, k) => {
+const removeDuplicates = (nums) => {
     // Your code here
 };`,
-            python: `def solution(arr: list[int], k: int) -> int:
+            python: `def remove_duplicates(nums: list[int]) -> int:
     """
-    Your implementation here
+    Remove duplicates in-place and return new length
     """
     # Your code here`,
             java: `class Solution {
     /**
-     * @param int[] arr
-     * @param int k
+     * @param int[] nums
      * @return int
      */
-    public int solution(int[] arr, int k) {
+    public int removeDuplicates(int[] nums) {
         // Your code here
     }
 }`,
-            cpp: `int solution(vector<int>& arr, int k) {
+            cpp: `int removeDuplicates(vector<int>& nums) {
     // Your code here
 }`,
             csharp: `public class Solution {
-    public int Solution(int[] arr, int k) {
+    public int RemoveDuplicates(int[] nums) {
         // Your code here
     }
 }`,
-            go: `func solution(arr []int, k int) int {
+            go: `func removeDuplicates(nums []int) int {
     // Your code here
     return 0
 }`,
-            rust: `fn solution(arr: &Vec<i32>, k: i32) -> i32 {
+            rust: `fn remove_duplicates(nums: &mut Vec<i32>) -> i32 {
     // Your code here
 }`,
             typescript: `/**
- * @param {number[]} arr
- * @param {number} k
+ * @param {number[]} nums
  * @return {number}
  */
-const solution = (arr: number[], k: number): number => {
+const removeDuplicates = (nums: number[]): number => {
     // Your code here
 };`
           }
