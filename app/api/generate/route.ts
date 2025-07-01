@@ -31,6 +31,9 @@ export async function POST(request: NextRequest) {
   try {
     const formData: FormData = await request.json()
 
+    console.log('=== GENERATION START ===')
+    console.log('Form Data:', JSON.stringify(formData, null, 2))
+
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     if (formData.type === 'write_code') {
@@ -58,11 +61,27 @@ export async function POST(request: NextRequest) {
     } else {
       // For complete_code, generate with function templates
       const combinedPrompt = generateCombinedPrompt(formData)
+      console.log('Generated Prompt Length:', combinedPrompt.length)
+      console.log('Prompt Preview:', combinedPrompt.substring(0, 500) + '...')
+      
       const result = await model.generateContent(combinedPrompt)
       const response = await result.response
       const text = response.text()
+      
+      console.log('=== GEMINI RESPONSE ===')
+      console.log('Response Length:', text.length)
+      console.log('Response Preview:', text.substring(0, 1000) + '...')
 
       const allQuestions = parseQuestionsWithImplementations(text, formData)
+      
+      console.log('=== PARSED QUESTIONS ===')
+      allQuestions.forEach((q, index) => {
+        console.log(`Question ${index + 1} (${q.language}):`)
+        console.log(`- Title: ${q.title}`)
+        console.log(`- Implementation length: ${q.implementation?.length || 0}`)
+        console.log(`- Implementation preview: ${q.implementation?.substring(0, 100) || 'NONE'}...`)
+      })
+      
       return NextResponse.json({ questions: allQuestions })
     }
   } catch (error) {
