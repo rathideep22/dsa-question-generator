@@ -462,11 +462,11 @@ const removeDuplicates = (nums: number[]): number => {
   }
 
   // Ensure we have the right number of questions
-  const expectedCount = 5 * formData.languages.length
+  const expectedCount = 5 * formData.languages.length;
   while (allQuestions.length < expectedCount) {
-    const questionIndex: number = Math.floor(allQuestions.length / formData.languages.length) + 1
-    const languageIndex: number = allQuestions.length % formData.languages.length
-    const language: string = formData.languages[languageIndex]
+    const questionIndex: number = Math.floor(allQuestions.length / formData.languages.length) + 1;
+    const languageIndex: number = allQuestions.length % formData.languages.length;
+    const language: string = formData.languages[languageIndex];
     
     allQuestions.push({
       id: `question-fallback-${questionIndex}-${language}`,
@@ -483,7 +483,7 @@ const removeDuplicates = (nums: number[]): number => {
     });
   }
 
-  return allQuestions.slice(0, expectedCount)
+  return allQuestions.slice(0, expectedCount);
 }
 
 function generateBaseOnlyPrompt(formData: FormData): string {
@@ -576,21 +576,21 @@ Generate 5 distinct, interview-ready questions that a ${formData.positionName} c
 }
 
 function parseBaseQuestions(text: string) {
-  const questions = []
-  const questionBlocks = text.split(/QUESTION \d+:/i).slice(1)
+  const questions = [];
+  const questionBlocks = text.split(/QUESTION \d+:/i).slice(1);
 
   for (let i = 0; i < questionBlocks.length && i < 5; i++) {
-    const block = questionBlocks[i].trim()
+    const block = questionBlocks[i].trim();
     
     try {
-      const titleMatch = block.match(/Title:\s*(.+?)(?=\n)/i)
-      const problemMatch = block.match(/Problem Statement:\s*([\s\S]+?)(?=Input Format:)/i)
-      const inputMatch = block.match(/Input Format:\s*([\s\S]+?)(?=Output Format:)/i)
-      const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i)
-      const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i)
-      const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i)
-      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:)/i)
-      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i)
+      const titleMatch = block.match(/Title:\s*(.+?)(?=\n)/i);
+      const problemMatch = block.match(/Problem Statement:\s*([\s\S]+?)(?=Input Format:)/i);
+      const inputMatch = block.match(/Input Format:\s*([\s\S]+?)(?=Output Format:)/i);
+      const outputMatch = block.match(/Output Format:\s*([\s\S]+?)(?=Constraints:)/i);
+      const constraintsMatch = block.match(/Constraints:\s*([\s\S]+?)(?=Sample Input:)/i);
+      const sampleInputMatch = block.match(/Sample Input:\s*([\s\S]+?)(?=Sample Output:)/i);
+      const sampleOutputMatch = block.match(/Sample Output:\s*([\s\S]+?)(?=Hint:)/i);
+      const hintMatch = block.match(/Hint:\s*([\s\S]+?)(?=QUESTION|\n\n|$)/i);
 
       // Clean hint text - remove any code templates or programming syntax
       const cleanHint = (hintText: string): string => {
@@ -637,7 +637,7 @@ function parseBaseQuestions(text: string) {
         sampleInput: sampleInputMatch?.[1]?.trim() || 'Sample input not provided',
         sampleOutput: sampleOutputMatch?.[1]?.trim() || 'Sample output not provided',
         hint: cleanHint(hintMatch?.[1]?.trim() || '')
-      }
+      };
 
       questions.push(question);
     } catch (parseError) {
@@ -669,5 +669,5 @@ function parseBaseQuestions(text: string) {
     });
   }
 
-  return questions.slice(0, 5)
-} 
+  return questions.slice(0, 5);
+}
