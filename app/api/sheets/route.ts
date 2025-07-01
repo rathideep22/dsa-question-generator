@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
         return [
           inputParameters.positionName, // Position Name
           question.language?.toUpperCase() || 'N/A', // Language
-          // Format problem field WITHOUT numbering for export - direct start, no labels
-          `${question.problemStatement}\n\nExample:\nInput: ${question.sampleInput}\nOutput: ${question.sampleOutput}\n\nConstraints:\n${question.constraints}${question.implementation ? `\n\n${question.implementation}` : ''}`,
+          // Format problem field - include function template ONLY for complete_code type
+          `${question.problemStatement}\n\nExample:\nInput: ${question.sampleInput}\nOutput: ${question.sampleOutput}\n\nConstraints:\n${question.constraints}${inputParameters.type === 'complete_code' && question.implementation ? `\n\n${question.implementation}` : ''}`,
           inputParameters.hint || question.hint || '', // Hint
           inputParameters.type, // Type
           inputParameters.difficultyLevel // Difficulty level
